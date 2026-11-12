@@ -6,9 +6,10 @@ name: model
 #
 # Required repository secrets:
 #   HF_TOKEN   a Hugging Face access token with *write* permission to the
-#              repository named by the HF_REPO variable
-# Required repository variables:
-#   HF_REPO    the target Hugging Face repo id, e.g. "heywoodlh/nix-llama"
+#              repository named by HF_REPO
+#   HF_REPO    the target Hugging Face repo id, e.g. "heywoodlh/nix-llama";
+#              read from secrets first, then from a repository variable of
+#              the same name
 #
 # Both are only needed for publishing; building works without them.
 on:
@@ -103,13 +104,13 @@ jobs:
         if: inputs.publish == true || github.event_name == 'push'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_REPO: ${{ vars.HF_REPO }}
+          HF_REPO: ${{ secrets.HF_REPO || vars.HF_REPO }}
           HF_COMMIT_MESSAGE: >-
             nix-llama ${{ steps.meta.outputs.version }}
             (${{ inputs.variant || 'model' }})
         run: |
           if [ -z "$HF_TOKEN" ] || [ -z "$HF_REPO" ]; then
-            echo "::error::publishing needs the HF_TOKEN secret and the HF_REPO variable"
+            echo "::error::publishing needs the HF_TOKEN and HF_REPO secrets"
             exit 1
           fi
           # Written to a file rather than inlined, so the shell quoting stays

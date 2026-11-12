@@ -18,6 +18,25 @@ a model whose prompt format changed -- is a major bump.
   user unit on Linux or a launchd agent on macOS, with the same options as the system
   modules. It supplies its own packages, so it works under `useGlobalPkgs`.
 
+### Changed
+
+- The model workflow reads `HF_REPO` from repository secrets, falling back to a
+  repository variable of the same name.
+- CI actions bumped: `github/codeql-action` v4, `docker/login-action` v4,
+  `actions/dependency-review-action` v5.
+
+### Fixed
+
+- Probe tests pin the platform to Linux when using the synthetic root, so they
+  pass on macOS runners.
+- CodeQL on pull requests: the job now has `actions: read`.
+- The proxy no longer uses `assert` for a runtime check (ruff `S101`).
+- The planner no longer picks a quantised KV cache for a model whose attention
+  head dimension is not a multiple of the 32-element block; llama-server
+  refused to start with it.
+- On macOS, the probe finds `sysctl` in `/usr/sbin` when `PATH` omits it, as
+  under launchd and Nix builders; it previously reported 0 bytes of memory.
+
 ## [0.1.0] - 2026-11-11
 
 The first release.

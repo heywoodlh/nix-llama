@@ -235,7 +235,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _augment_body(self, body: bytes) -> bytes:
         state = self.state
-        assert state is not None
+        # do_POST already checks this; an assert would vanish under -O, and
+        # relaying unchanged keeps retrieval from ever failing a request.
+        if state is None:
+            return body
         state.stats["requests"] += 1
         try:
             payload = json.loads(body)

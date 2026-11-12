@@ -37,6 +37,10 @@ HOST_RESERVE_FRACTION = 0.2
 # Bits per element of the supported KV cache types. q8_0 stores 32 values per
 # 34-byte block, so 8.5 bits -- rounding up keeps the estimate conservative.
 KV_BITS = {"f32": 32, "f16": 16, "bf16": 16, "q8_0": 9, "q5_1": 6, "q5_0": 6, "q4_1": 5, "q4_0": 5}
+# Elements per block of the quantised KV types. llama.cpp refuses to create a
+# context when the attention head dimension is not a multiple of this, so the
+# planner must not offer such a type to a model with small heads.
+KV_BLOCK = {"q8_0": 32, "q5_1": 32, "q5_0": 32, "q4_1": 32, "q4_0": 32}
 
 
 @dataclass
@@ -148,6 +152,11 @@ def plan_context(
 
     kv_room = max(0, budget - model_bytes)
     candidates = ["f16", "q8_0"] if kv_setting == "auto" else [kv_setting]
+    if kv_setting == "auto":
+        # Unknown geometry keeps the old behaviour; a known head dimension that
+        # the block size does not divide would make llama-server exit at load.
+        head_dim = getattr(gguf, "head_dim", None)
+        candidates = [t for t in candidates if not head_dim or head_dim % KV_BLOCK.get(t, 1) == 0]
     chosen_type = candidates[0]
     ctx = 0
     for kv_type in candidates:

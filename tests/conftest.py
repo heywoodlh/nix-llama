@@ -45,8 +45,12 @@ def write(path: Path, content: str) -> Path:
 
 
 @pytest.fixture
-def fakeroot(tmp_path: Path) -> Path:
+def fakeroot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A minimal Linux-looking filesystem root."""
+    # The probe picks its code path from the running OS, not from the root it
+    # is pointed at; without this, macOS runners take the sysctl branch and
+    # ignore the synthetic /proc and /sys entirely.
+    monkeypatch.setattr("nix_llama.probe.platform.system", lambda: "Linux")
     root = tmp_path / "root"
     write(root / "proc/cpuinfo", CPUINFO_RYZEN)
     write(root / "proc/meminfo", MEMINFO_32G)
