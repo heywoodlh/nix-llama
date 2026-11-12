@@ -402,7 +402,7 @@ PR description and explain why the new behaviour is still correct.
   target model repository. Create it at
   <https://huggingface.co/settings/tokens> with the "Write access to contents/settings
   of selected repos" scope, scoped to the repo in `HF_REPO`.
-- Variable `HF_REPO` — the target repo id, e.g. `heywoodlh/nix-llama`.
+- Secret (or variable) `HF_REPO` — the target repo id, e.g. `heywoodlh/nix-llama`.
 
 GHCR needs no secret: `release.yml` uses the built-in `GITHUB_TOKEN` with
 `packages: write`. If you want faster CI, add `CACHIX_AUTH_TOKEN` and a cache name and
