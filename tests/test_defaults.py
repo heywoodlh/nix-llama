@@ -75,6 +75,18 @@ def test_kv_cache_is_quantised_only_when_that_is_what_makes_the_context_fit() ->
     assert (ctx, kv_type) == (32768, "f16")
 
 
+def test_kv_cache_is_not_quantised_when_the_head_dimension_is_smaller_than_a_block(
+    tmp_path: Path,
+) -> None:
+    # 64 / 8 = 8-wide heads, as in the test model; q8_0 blocks are 32 wide and
+    # llama.cpp refuses to create the context. Starve the budget so q8_0 would
+    # otherwise be chosen.
+    gguf = read_gguf(build_gguf(tmp_path / "m.gguf", n_embd=64, n_head=8, n_head_kv=4))
+    assert gguf.head_dim == 8
+    _, kv_type, notes = plan_context(0, 1 * MiB, gguf, {"maxContextSize": 32768})
+    assert kv_type == "f16", notes
+
+
 def test_an_explicit_context_wins_but_warns_when_it_does_not_fit(gguf_file: Path) -> None:
     config = load(overrides={"tuning": {"contextSize": 131072}})
     result = plan(config, facts(), read_gguf(gguf_file), model_path="/m.gguf")
