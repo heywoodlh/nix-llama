@@ -68,6 +68,7 @@ modules/
   settings.nix               renders the JSON config and picks the package
   nixos.nix                  systemd service and hardening
   darwin.nix                 launchd daemon and service account
+  home-manager.nix           systemd user unit / launchd agent, no service account
 
 training/
   train_lora.py              LoRA fine-tune (needs torch; runs in nix/model/train.nix)

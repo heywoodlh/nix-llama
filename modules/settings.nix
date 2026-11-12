@@ -107,6 +107,33 @@ rec {
 
   packageFor = accel: packages.${accel} or pkgs.nix-llama;
 
+  # `acceleration = "auto"` resolves at evaluation time, so it reads the
+  # configuration rather than the hardware. The runtime probe is what catches a
+  # mismatch -- it asks llama-server which devices it can actually see and warns
+  # when real hardware is going unused.
+  #
+  # `sysConfig` is the NixOS configuration: the system module passes its own,
+  # Home Manager passes `osConfig`, or `{ }` when it runs standalone and there
+  # is nothing to read.
+  inferAcceleration =
+    sysConfig:
+    if pkgs.stdenv.hostPlatform.isDarwin then
+      "metal"
+    else if pkgs.config.cudaSupport or false then
+      "cuda"
+    else if sysConfig.hardware.nvidia.modesetting.enable or false then
+      "cuda"
+    else if lib.elem "nvidia" (sysConfig.services.xserver.videoDrivers or [ ]) then
+      "cuda"
+    else if pkgs.config.rocmSupport or false then
+      "rocm"
+    else if sysConfig.hardware.amdgpu.opencl.enable or false then
+      "rocm"
+    else if sysConfig.hardware.graphics.enable or false then
+      "vulkan"
+    else
+      "cpu";
+
   # Environment shared by both service managers.
   environment = {
     NIX_LLAMA_CONFIG = toString configFile;

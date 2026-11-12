@@ -248,6 +248,15 @@
         };
       };
 
+      # Home Manager cannot take the overlay the way the system modules do:
+      # under `useGlobalPkgs` it asserts that `nixpkgs.overlays` is unset. So
+      # `default` hands the overlay to the module, which extends `pkgs` itself
+      # only if the packages are missing; `nix-llama` expects them present.
+      homeManagerModules = {
+        nix-llama = import ./modules/home-manager.nix { };
+        default = import ./modules/home-manager.nix { overlay = self.overlays.default; };
+      };
+
       formatter = eachSystem (pkgs: _system: pkgs.nixfmt-rfc-style);
     };
 }

@@ -17,25 +17,7 @@ let
   cfg = config.services.nix-llama;
   settings = import ./settings.nix { inherit lib pkgs cfg; };
 
-  # `acceleration = "auto"` resolves at evaluation time, so it reads the
-  # configuration rather than the hardware. The runtime probe is what catches a
-  # mismatch -- it asks llama-server which devices it can actually see and warns
-  # when real hardware is going unused.
-  inferredAcceleration =
-    if pkgs.config.cudaSupport or false then
-      "cuda"
-    else if config.hardware.nvidia.modesetting.enable or false then
-      "cuda"
-    else if lib.elem "nvidia" (config.services.xserver.videoDrivers or [ ]) then
-      "cuda"
-    else if pkgs.config.rocmSupport or false then
-      "rocm"
-    else if config.hardware.amdgpu.opencl.enable or false then
-      "rocm"
-    else if config.hardware.graphics.enable or false then
-      "vulkan"
-    else
-      "cpu";
+  inferredAcceleration = settings.inferAcceleration config;
 
   acceleration = if cfg.acceleration == "auto" then inferredAcceleration else cfg.acceleration;
   package = if cfg.package != null then cfg.package else settings.packageFor acceleration;
