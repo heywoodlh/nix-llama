@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,10 @@ from nix_llama.probe import (
     probe,
     vram_for,
 )
+
+# Captured before the autouse fixture below replaces it, for the one test that
+# exercises helper lookup itself against a stand-in binary.
+_real_run = probe_mod._run
 
 
 @pytest.fixture(autouse=True)
@@ -199,3 +204,16 @@ def test_probe_end_to_end_is_serialisable(fakeroot: Path, tmp_path: Path) -> Non
     assert data["cpu"]["available"] >= 1
     assert "is_ssd" in data["storage"]
     assert facts.to_json().startswith("{")
+
+
+def test_helpers_are_found_in_system_directories_when_path_omits_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # macOS keeps sysctl in /usr/sbin, which launchd and Nix builders leave
+    # off PATH; the probe then reported 0 bytes of memory.
+    sbin = tmp_path / "sbin"
+    sbin.mkdir()
+    (sbin / "helper").symlink_to(sys.executable)
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(probe_mod, "SYSTEM_BIN_PATH", str(sbin))
+    assert _real_run(["helper", "-c", "print(42)"]) == "42\n"

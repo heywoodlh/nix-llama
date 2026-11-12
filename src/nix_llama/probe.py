@@ -30,6 +30,10 @@ VENDOR_INTEL = "0x8086"
 # matching device, so this is a ranking rather than a guess.
 BACKEND_PRIORITY = ["cuda", "metal", "rocm", "vulkan", "sycl", "opencl", "blas", "cpu"]
 
+# Where the OS keeps the helpers the probe shells out to (sysctl on macOS),
+# searched only when PATH does not already find them.
+SYSTEM_BIN_PATH = os.pathsep.join(("/usr/sbin", "/sbin", "/usr/bin", "/bin"))
+
 _LIST_DEVICES_RE = re.compile(
     r"^\s+(?P<backend>[A-Za-z0-9_]+):\s+(?P<name>.*?)\s+\((?P<total>\d+)\s*MiB"
     r"(?:,\s*(?P<free>\d+)\s*MiB free)?\)\s*$"
@@ -38,7 +42,10 @@ _LIST_DEVICES_RE = re.compile(
 
 def _run(argv: list[str], timeout: float = 10.0) -> str | None:
     """Run a helper binary, returning stdout or ``None`` if it is unusable."""
-    exe = shutil.which(argv[0])
+    # launchd daemons and Nix builders on macOS run with a PATH that omits
+    # /usr/sbin, where sysctl lives; without the fallback the probe reports
+    # 0 bytes of memory and the planner sizes everything for nothing.
+    exe = shutil.which(argv[0]) or shutil.which(argv[0], path=SYSTEM_BIN_PATH)
     if exe is None:
         return None
     try:

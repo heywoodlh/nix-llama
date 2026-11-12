@@ -25,6 +25,11 @@ a model whose prompt format changed -- is a major bump.
   pass on macOS runners.
 - CodeQL on pull requests: the job now has `actions: read`.
 - The proxy no longer uses `assert` for a runtime check (ruff `S101`).
+- The planner no longer picks a quantised KV cache for a model whose attention
+  head dimension is not a multiple of the 32-element block; llama-server
+  refused to start with it.
+- On macOS, the probe finds `sysctl` in `/usr/sbin` when `PATH` omits it, as
+  under launchd and Nix builders; it previously reported 0 bytes of memory.
 
 ## [0.1.0] - 2026-11-11
 
