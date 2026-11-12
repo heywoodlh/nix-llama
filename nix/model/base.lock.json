@@ -1,0 +1,40 @@
+{
+  "bases": {
+    "default": {
+      "files": {
+        "LICENSE": "sha256-gy3Z4Apo3YOzw/ufVYja19zzN6DbUPfZSD8xDNKS6S4=",
+        "README.md": "sha256-PAkL43+CmtweTNt4czZnQ3cyVBRwQwqyzXhdfw1GAHc=",
+        "config.json": "sha256-wCQkAq1qE7Mx6jIP7qjH43dv+3pO/wdXuc1mfhFtmig=",
+        "generation_config.json": "sha256-GmKKV3W8ac3gHGdJpTEVDKTTGJZSxhihdPcHeSOs87E=",
+        "merges.txt": "sha256-WZurVAdQiHdLFzP96GXVvXR8vMelR8W8EmEOh04m9eM=",
+        "model-00001-of-00004.safetensors": "sha256-C28GmRiwfAZMu6iuTwD1Kaqbv4S3zfy3/CaUpA9qqO8=",
+        "model-00002-of-00004.safetensors": "sha256-w9RnM+eqBU6nsGP7zNCloIRG570YFL7yaTbFqhMx2mI=",
+        "model-00003-of-00004.safetensors": "sha256-n+RdrO4Ic4Wz0tbdJ6dBOopW2V8UV3L6zBSPqG/HNEY=",
+        "model-00004-of-00004.safetensors": "sha256-Wqbly+ZCN3/UQftOYOg8ypayvNmCDiRbnqBtlGU/F/I=",
+        "model.safetensors.index.json": "sha256-mYoHgSP/yXdjaQ3n8qZ364kWivXq+KXhLmvCTRjiW9s=",
+        "tokenizer.json": "sha256-wDghF+oynN8JcEETL21zWSS2l5JNb2/DlFcT6WzodTk=",
+        "tokenizer_config.json": "sha256-lZ5/HZobdkGm1s4Fype3XHiU/LZsvloEBAZFj7ESjuQ=",
+        "vocab.json": "sha256-yhDX6fs+0YV13R4neiV5wW0QjjLydDloSvoOELFECRA="
+      },
+      "license": "apache-2.0",
+      "repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
+      "revision": "c03e6d358207e414f1eca0bb1891e29f1db0e242"
+    },
+    "small": {
+      "files": {
+        "LICENSE": "sha256-gy3Z4Apo3YOzw/ufVYja19zzN6DbUPfZSD8xDNKS6S4=",
+        "README.md": "sha256-qFBP0+EkfJDk/mQNhN+WMjcTS/KdsCsN59UC7tbJPDM=",
+        "config.json": "sha256-iPmheGPAX7MTUV0v90sQmODDVXn5kGjjK+2gBhhQiuA=",
+        "generation_config.json": "sha256-GmKKV3W8ac3gHGdJpTEVDKTTGJZSxhihdPcHeSOs87E=",
+        "merges.txt": "sha256-WZurVAdQiHdLFzP96GXVvXR8vMelR8W8EmEOh04m9eM=",
+        "model.safetensors": "sha256-wbmzDpB5UFFro8ZGvfVw2AhMJaZBCgzcqAzwSxG8E6g=",
+        "tokenizer.json": "sha256-wDghF+oynN8JcEETL21zWSS2l5JNb2/DlFcT6WzodTk=",
+        "tokenizer_config.json": "sha256-lZ5/HZobdkGm1s4Fype3XHiU/LZsvloEBAZFj7ESjuQ=",
+        "vocab.json": "sha256-yhDX6fs+0YV13R4neiV5wW0QjjLydDloSvoOELFECRA="
+      },
+      "license": "apache-2.0",
+      "repo": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+      "revision": "2e1fd397ee46e1388853d2af2c993145b0f1098a"
+    }
+  }
+}

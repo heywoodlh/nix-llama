@@ -1,0 +1,167 @@
+name: model
+
+# Builds and publishes the model. Separate from `release` because the model has
+# its own cadence: the documentation corpus can move (and should, for Hyprland
+# and Niri) without the server code changing.
+#
+# Required repository secrets:
+#   HF_TOKEN   a Hugging Face access token with *write* permission to the
+#              repository named by the HF_REPO variable
+# Required repository variables:
+#   HF_REPO    the target Hugging Face repo id, e.g. "heywoodlh/nix-llama"
+#
+# Both are only needed for publishing; building works without them.
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: Which model to build
+        type: choice
+        default: model
+        options: [model, model-small, model-trained, model-small-trained]
+      publish:
+        description: Push the result to Hugging Face
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  schedule:
+    # Weekly, so the retrieval index does not drift far behind upstream docs.
+    - cron: "41 4 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build ${{ inputs.variant || 'model' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            # Fine-tuning needs the sandbox relaxed to reach an accelerator;
+            # harmless here, where only fetching and quantizing happen.
+            system-features = big-parallel
+
+      - name: Free up disk space
+        run: |
+          # The weights alone are 4.7 GB, and the corpus adds several more.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
+      - name: Build the model
+        id: build
+        run: |
+          nix build --print-build-logs ".#${{ inputs.variant || 'model' }}" --out-link model-result
+          ls -lhL model-result/
+
+      - name: Metadata
+        id: meta
+        run: |
+          echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+          nix run nixpkgs#jq -- . model-result/manifest.json
+
+      - name: Verify the size budget
+        run: |
+          # The whole premise is a model that fits on an 8 GiB accelerator.
+          bytes=$(stat -Lc%s model-result/model.gguf)
+          echo "weights: $bytes bytes"
+          test "$bytes" -le 5000000000
+
+      - name: Summarise
+        run: |
+          {
+            echo "### Model"
+            echo '```'
+            nix run nixpkgs#jq -- -r \
+              '"variant: \(.variant)\nprovenance: \(.provenance)\nbase: \(.baseModel)\nquant: \(.quantization)"' \
+              model-result/manifest.json
+            echo '```'
+            echo "### Attribution"
+            cat model-result/ATTRIBUTION.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stage the upload directory
+        run: |
+          mkdir -p upload
+          cp -L model-result/model.gguf "upload/nix-llama-${{ inputs.variant || 'model' }}.gguf"
+          cp -L model-result/MODEL_CARD.md upload/README.md
+          cp -L model-result/ATTRIBUTION.md upload/ATTRIBUTION.md
+          cp -L model-result/manifest.json upload/manifest.json
+          cp -rL model-result/rag upload/rag
+          cp -L model-result/system-prompt.md upload/system-prompt.md
+          du -sh upload
+
+      - name: Publish to Hugging Face
+        if: inputs.publish == true || github.event_name == 'push'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ vars.HF_REPO }}
+          HF_COMMIT_MESSAGE: >-
+            nix-llama ${{ steps.meta.outputs.version }}
+            (${{ inputs.variant || 'model' }})
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_REPO" ]; then
+            echo "::error::publishing needs the HF_TOKEN secret and the HF_REPO variable"
+            exit 1
+          fi
+          # Written to a file rather than inlined, so the shell quoting stays
+          # legible and shellcheck can see it.
+          cat > publish.sh <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          hf auth whoami
+          hf upload "$HF_REPO" upload . \
+            --repo-type model \
+            --commit-message "$HF_COMMIT_MESSAGE"
+          SCRIPT
+          chmod +x publish.sh
+          nix shell nixpkgs#python3Packages.huggingface-hub --command ./publish.sh
+
+  refresh-sources:
+    name: refresh the documentation corpus
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Hyprland and Niri change their configuration surface often, and the
+      # whole point of the retrieval index is to be newer than the weights.
+      - name: Re-pin every documentation source
+        run: nix run .#update-sources
+
+      - name: Rebuild the corpus with the new pins
+        run: nix build --print-build-logs '.#corpus' --out-link corpus-result
+
+      - name: Open a pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/refresh-documentation-corpus
+          title: "corpus: refresh pinned documentation sources"
+          commit-message: "corpus: refresh pinned documentation sources"
+          body: |
+            Automated refresh of `nix/model/sources.lock.json`.
+
+            The retrieval index is pinned to upstream revisions, so it only
+            gets newer when something re-pins it. Merging this makes the next
+            model build cite current documentation.
+
+            Corpus statistics after the refresh are in the workflow run; the
+            licence policy check gates this PR like any other.
+          labels: automation
+          delete-branch: true

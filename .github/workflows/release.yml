@@ -1,0 +1,173 @@
+name: release
+
+# Triggered by a semantic version tag. Everything published here -- the
+# container images, the GitHub release -- carries the same version, which the
+# version-consistency check has already proven matches VERSION and CHANGELOG.md.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build everything but publish nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  verify:
+    name: verify the tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Resolve and check the version
+        id: version
+        run: |
+          version="$(cat VERSION)"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${GITHUB_REF#refs/tags/v}"
+            if [ "$tag" != "$version" ]; then
+              echo "::error::tag v$tag does not match VERSION ($version)"
+              exit 1
+            fi
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.dry_run }}" = "false" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A release must not ship something that fails its own tests.
+      - name: Full flake check
+        run: nix flake check --print-build-logs
+
+  image:
+    name: image (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: [verify]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            system: x86_64-linux
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            system: aarch64-linux
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Build the image
+        run: |
+          nix build --print-build-logs ".#packages.${{ matrix.system }}.container"
+          ./result | docker load
+
+      - name: Log in to GHCR
+        if: needs.verify.outputs.publish == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push the per-architecture image
+        if: needs.verify.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          target="$REGISTRY/${OWNER,,}/nix-llama:$VERSION-${{ matrix.arch }}"
+          docker tag "nix-llama:$VERSION" "$target"
+          docker push "$target"
+
+  manifest:
+    name: multi-arch manifest
+    runs-on: ubuntu-latest
+    needs: [verify, image]
+    if: needs.verify.outputs.publish == 'true'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Semantic tags: an exact version, a floating minor, a floating major,
+      # and latest. A consumer picks the stability they want.
+      - name: Create and push the manifest list
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          repo="$REGISTRY/${OWNER,,}/nix-llama"
+          major="${VERSION%%.*}"
+          minor="${VERSION%.*}"
+          for tag in "$VERSION" "$minor" "$major" latest; do
+            docker manifest create "$repo:$tag" \
+              --amend "$repo:$VERSION-amd64" \
+              --amend "$repo:$VERSION-arm64"
+            docker manifest push "$repo:$tag"
+            echo "pushed $repo:$tag"
+          done
+
+  release:
+    name: github release
+    runs-on: ubuntu-latest
+    needs: [verify, manifest]
+    if: needs.verify.outputs.publish == 'true'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract the changelog section for this version
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          awk -v version="$VERSION" '
+            $0 ~ "^## \\[" version "\\]" { collecting = 1; next }
+            collecting && /^## \[/ { exit }
+            collecting { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for $VERSION"
+            exit 1
+          fi
+          cat release-notes.md
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(needs.verify.outputs.version, '-') }}
+          generate_release_notes: true

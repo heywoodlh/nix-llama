@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nix-llama"
+description = "Turnkey llama.cpp serving with hardware-aware defaults and documentation retrieval"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "heywoodlh" }]
+keywords = ["llama.cpp", "nix", "nixos", "llm", "rag"]
+classifiers = [
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# Deliberately dependency-free: nix-llama ships inside a model server's closure
+# and on an 8 GiB box, so the runtime is the Python standard library only.
+dependencies = []
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/heywoodlh/nix-llama"
+Source = "https://github.com/heywoodlh/nix-llama"
+
+[project.scripts]
+nix-llama = "nix_llama.cli:main"
+nix-llama-probe = "nix_llama.cli:probe_main"
+nix-llama-rag = "nix_llama.rag.cli:main"
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nix_llama*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "training"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "S"]
+ignore = [
+  "S101",    # asserts are fine in this codebase's internal invariants
+  "SIM105",  # contextlib.suppress is not clearer than a narrow except here
+  "RUF012",  # the handler class attributes are intentionally mutable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "N802", "N806"]
+"training/*" = ["S404", "S603", "S607"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

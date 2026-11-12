@@ -1,0 +1,15 @@
+# Actions are the only pinned third-party code in this repository that Nix does
+# not manage; flake.lock covers everything else and is refreshed by the model
+# workflow's corpus job and by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+    labels:
+      - automation

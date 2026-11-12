@@ -1,0 +1,76 @@
+# nix-llama with Docker Compose.
+#
+#   # 1. build the model bundle (weights + retrieval index + system prompt)
+#   nix build github:heywoodlh/nix-llama#model -o ./model
+#
+#   # 2. start the server
+#   docker compose up -d
+#
+#   # 3. point a harness at it
+#   curl http://127.0.0.1:8080/v1/models
+#
+# The image carries no weights, which is why ./model is mounted. If you would
+# rather not manage a volume, use the image with the model baked in:
+#   nix build github:heywoodlh/nix-llama#container-model && ./result | docker load
+services:
+  nix-llama:
+    image: ghcr.io/heywoodlh/nix-llama:latest
+    container_name: nix-llama
+    restart: unless-stopped
+
+    # Loopback-only by default. Publishing on 0.0.0.0 without an API key in
+    # front puts an unauthenticated model server on your network.
+    ports:
+      - "127.0.0.1:8080:8080"
+
+    volumes:
+      # The model bundle produced by `nix build .#model`. Read-only: the server
+      # never writes to it.
+      - ./model:/model:ro
+      # Prompt caches and spilled KV slots. Persisting this across restarts is
+      # what makes a resumed conversation fast instead of re-evaluated.
+      - nix-llama-state:/var/lib/nix-llama
+
+    environment:
+      # Everything nix-llama infers can be overridden here; leave these unset
+      # to let the probe decide.
+      NIX_LLAMA_HOST: "0.0.0.0"
+      NIX_LLAMA_MODEL_DIR: "/model"
+      # NIX_LLAMA_CONTEXT_SIZE: "16384"
+      # NIX_LLAMA_THREADS: "8"
+      # NIX_LLAMA_ACCELERATION: "cuda"
+
+    # The probe reads cgroup limits, so these are not just advisory -- they
+    # change the context size and thread count nix-llama chooses.
+    deploy:
+      resources:
+        limits:
+          memory: 10G
+        reservations:
+          memory: 8G
+
+    healthcheck:
+      test: ["CMD", "/bin/nix-llama", "doctor"]
+      interval: 30s
+      timeout: 10s
+      start_period: 180s
+      retries: 3
+
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    # GPU passthrough. Requires an image built with the matching backend:
+    #   nix build .#nix-llama-cuda   (then build the container from it)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  nix-llama-state:

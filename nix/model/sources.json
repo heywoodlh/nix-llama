@@ -1,0 +1,361 @@
+{
+  "comment": [
+    "Documentation sources for the nix-llama corpus. Hand-maintained; the matching",
+    "revisions and hashes live in sources.lock.json and are refreshed by",
+    "`nix run .#update-sources`.",
+    "",
+    "`usage` encodes the licence policy, and it is enforced at build time:",
+    "  - \"training\" + \"retrieval\": permissive licences (MIT, BSD, Apache-2.0, ISC,",
+    "    Zlib, CC0, CC-BY). Fine-tuning on these and redistributing excerpts of them",
+    "    are both unambiguously permitted.",
+    "  - \"retrieval\" only: share-alike / weak-copyleft licences (CC-BY-SA, GPL, LGPL,",
+    "    MPL). These are indexed so the model can quote them with attribution, but",
+    "    they are never used as fine-tuning material -- the share-alike obligation on",
+    "    a derived work is not something we can honour inside model weights.",
+    "",
+    "Deliberately excluded, and why:",
+    "  - ValveSoftware/Proton: per-directory, mixed and partly unstated licensing.",
+    "    DXVK (Zlib) and vkd3d-proton (LGPL-2.1) cover the same ground with clear terms.",
+    "  - ValveSoftware/gamescope: no SPDX-identifiable licence.",
+    "  - Arch Wiki: GFDL-1.3, which is neither permissive nor practical to comply with here.",
+    "  - wiki.nixos.org: CC-BY-SA-4.0 content, but no git source to pin reproducibly.",
+    "  - tangled.org: no LICENSE file is published for its source or docs, so there is",
+    "    no permission to rely on. Revisit if upstream adds one.",
+    "  - Apple developer documentation: proprietary. macOS coverage comes from",
+    "    nix-darwin and Homebrew instead."
+  ],
+  "sources": [
+    {
+      "name": "nixpkgs-manual",
+      "from": "nixpkgs-input",
+      "subdir": "doc",
+      "license": "MIT",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "homepage": "https://github.com/NixOS/nixpkgs",
+      "urlTemplate": "https://github.com/NixOS/nixpkgs/blob/{rev}/doc/{path}",
+      "description": "Nixpkgs manual: language, builders, stdlib, packaging conventions",
+      "include": [
+        "**/*.md"
+      ],
+      "exclude": [
+        "**/release-notes/**",
+        "**/rl-*.section.md"
+      ]
+    },
+    {
+      "name": "nixos-manual",
+      "from": "nixpkgs-input",
+      "subdir": "nixos/doc/manual",
+      "license": "MIT",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "homepage": "https://github.com/NixOS/nixpkgs",
+      "urlTemplate": "https://github.com/NixOS/nixpkgs/blob/{rev}/nixos/doc/manual/{path}",
+      "description": "NixOS manual: modules, services, installation, administration",
+      "include": [
+        "**/*.md"
+      ],
+      "exclude": [
+        "**/release-notes/**",
+        "**/rl-*.section.md"
+      ]
+    },
+    {
+      "name": "nixos-options",
+      "from": "nixpkgs-input",
+      "subdir": "nixos/modules",
+      "license": "MIT",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "homepage": "https://github.com/NixOS/nixpkgs",
+      "urlTemplate": "https://github.com/NixOS/nixpkgs/blob/{rev}/nixos/modules/{path}",
+      "include": [
+        "**/*.nix"
+      ],
+      "exclude": [
+        "**/tests/**",
+        "**/*-test.nix",
+        "installer/**"
+      ],
+      "description": "NixOS module option declarations: every services.*, programs.* and boot.* option"
+    },
+    {
+      "name": "nix-darwin",
+      "forge": "github",
+      "owner": "nix-darwin",
+      "repo": "nix-darwin",
+      "branch": "master",
+      "license": "MIT",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "include": [
+        "*.md",
+        "doc/**/*.md",
+        "modules/**/*.nix"
+      ],
+      "exclude": [
+        "tests/**",
+        "**/*_test.nix"
+      ],
+      "urlTemplate": "https://github.com/nix-darwin/nix-darwin/blob/{rev}/{path}",
+      "description": "nix-darwin modules and option definitions for macOS"
+    },
+    {
+      "name": "home-manager",
+      "forge": "github",
+      "owner": "nix-community",
+      "repo": "home-manager",
+      "branch": "master",
+      "license": "MIT",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "sparse": [
+        "docs",
+        "modules"
+      ],
+      "include": [
+        "docs/**/*.md",
+        "modules/**/*.nix"
+      ],
+      "exclude": [
+        "**/tests/**",
+        "modules/lib/test/**",
+        "**/release-notes/**",
+        "**/rl-*.md"
+      ],
+      "urlTemplate": "https://github.com/nix-community/home-manager/blob/{rev}/{path}",
+      "description": "home-manager manual and module option definitions"
+    },
+    {
+      "name": "hyprland-wiki",
+      "forge": "github",
+      "owner": "hyprwm",
+      "repo": "hyprland-wiki",
+      "branch": "main",
+      "license": "BSD-3-Clause",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "include": [
+        "content/**/*.md"
+      ],
+      "urlTemplate": "https://github.com/hyprwm/hyprland-wiki/blob/{rev}/{path}",
+      "description": "Hyprland configuration reference and wiki (current upstream docs)"
+    },
+    {
+      "name": "kubernetes",
+      "forge": "github",
+      "owner": "kubernetes",
+      "repo": "website",
+      "branch": "main",
+      "license": "CC-BY-4.0",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "sparse": [
+        "content/en/docs/concepts",
+        "content/en/docs/tasks",
+        "content/en/docs/reference/kubectl"
+      ],
+      "include": [
+        "content/en/docs/**/*.md"
+      ],
+      "urlTemplate": "https://github.com/kubernetes/website/blob/{rev}/{path}",
+      "description": "Kubernetes concepts, tasks and kubectl reference"
+    },
+    {
+      "name": "github-actions",
+      "forge": "github",
+      "owner": "github",
+      "repo": "docs",
+      "branch": "main",
+      "license": "CC-BY-4.0",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "sparse": [
+        "content/actions"
+      ],
+      "include": [
+        "content/actions/**/*.md"
+      ],
+      "urlTemplate": "https://github.com/github/docs/blob/{rev}/{path}",
+      "description": "GitHub Actions workflow syntax, runners and CI/CD reference"
+    },
+    {
+      "name": "homebrew",
+      "forge": "github",
+      "owner": "Homebrew",
+      "repo": "brew",
+      "branch": "main",
+      "license": "BSD-2-Clause",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "sparse": [
+        "docs"
+      ],
+      "include": [
+        "docs/**/*.md"
+      ],
+      "urlTemplate": "https://github.com/Homebrew/brew/blob/{rev}/{path}",
+      "description": "Homebrew documentation: macOS package management and tooling"
+    },
+    {
+      "name": "dxvk",
+      "forge": "github",
+      "owner": "doitsujin",
+      "repo": "dxvk",
+      "branch": "master",
+      "license": "Zlib",
+      "usage": [
+        "training",
+        "retrieval"
+      ],
+      "include": [
+        "*.md",
+        "dxvk.conf"
+      ],
+      "urlTemplate": "https://github.com/doitsujin/dxvk/blob/{rev}/{path}",
+      "description": "DXVK: D3D-on-Vulkan translation used by Proton, and its tunables"
+    },
+    {
+      "name": "nix-manual",
+      "forge": "github",
+      "owner": "NixOS",
+      "repo": "nix",
+      "branch": "master",
+      "license": "LGPL-2.1",
+      "usage": [
+        "retrieval"
+      ],
+      "sparse": [
+        "doc/manual/source"
+      ],
+      "include": [
+        "doc/manual/source/**/*.md"
+      ],
+      "urlTemplate": "https://github.com/NixOS/nix/blob/{rev}/{path}",
+      "description": "The Nix manual: CLI reference, store, derivations, flakes"
+    },
+    {
+      "name": "nix-dev",
+      "forge": "github",
+      "owner": "NixOS",
+      "repo": "nix.dev",
+      "branch": "master",
+      "license": "CC-BY-SA-4.0",
+      "usage": [
+        "retrieval"
+      ],
+      "include": [
+        "source/**/*.md"
+      ],
+      "urlTemplate": "https://github.com/NixOS/nix.dev/blob/{rev}/{path}",
+      "description": "nix.dev: official Nix tutorials and best-practice guides"
+    },
+    {
+      "name": "niri",
+      "forge": "github",
+      "owner": "YaLTeR",
+      "repo": "niri",
+      "branch": "main",
+      "license": "GPL-3.0",
+      "usage": [
+        "retrieval"
+      ],
+      "include": [
+        "**/*.md"
+      ],
+      "urlTemplate": "https://github.com/YaLTeR/niri/wiki",
+      "description": "Niri scrollable-tiling compositor wiki (current upstream docs)",
+      "wiki": true
+    },
+    {
+      "name": "codeberg",
+      "forge": "codeberg",
+      "owner": "Codeberg",
+      "repo": "Documentation",
+      "branch": "main",
+      "license": "CC-BY-SA-4.0",
+      "usage": [
+        "retrieval"
+      ],
+      "include": [
+        "content/**/*.md"
+      ],
+      "urlTemplate": "https://codeberg.org/Codeberg/Documentation/src/commit/{rev}/{path}",
+      "description": "Codeberg documentation, including Forgejo Actions and Woodpecker CI"
+    },
+    {
+      "name": "vkd3d-proton",
+      "forge": "github",
+      "owner": "HansKristian-Work",
+      "repo": "vkd3d-proton",
+      "branch": "master",
+      "license": "LGPL-2.1",
+      "usage": [
+        "retrieval"
+      ],
+      "include": [
+        "*.md",
+        "docs/**/*.md"
+      ],
+      "urlTemplate": "https://github.com/HansKristian-Work/vkd3d-proton/blob/{rev}/{path}",
+      "description": "vkd3d-proton: D3D12-on-Vulkan used by Proton, and its environment variables"
+    },
+    {
+      "name": "lutris",
+      "forge": "github",
+      "owner": "lutris",
+      "repo": "lutris",
+      "branch": "master",
+      "license": "GPL-3.0",
+      "usage": [
+        "retrieval"
+      ],
+      "include": [
+        "docs/**/*.rst",
+        "README.rst",
+        "INSTALL.rst"
+      ],
+      "urlTemplate": "https://github.com/lutris/lutris/blob/{rev}/{path}",
+      "description": "Lutris: practical Linux gaming, Wine/Proton runners and configuration"
+    },
+    {
+      "name": "gitlab-ci",
+      "forge": "gitlab",
+      "owner": "gitlab-org",
+      "repo": "gitlab",
+      "branch": "master",
+      "license": "CC-BY-SA-4.0",
+      "usage": [
+        "retrieval"
+      ],
+      "optional": true,
+      "sparse": [
+        "doc/ci"
+      ],
+      "include": [
+        "doc/ci/**/*.md"
+      ],
+      "urlTemplate": "https://gitlab.com/gitlab-org/gitlab/-/blob/{rev}/{path}",
+      "description": "GitLab CI/CD reference: .gitlab-ci.yml keywords, runners, pipelines"
+    }
+  ]
+}

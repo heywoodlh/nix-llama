@@ -1,0 +1,121 @@
+# A minimal nix-llama Deployment.
+#
+# CPU only, on purpose: accelerators in Kubernetes mean device plugins, node
+# labels and a runtime class, all of which depend on your cluster rather than
+# on nix-llama. Get it serving first, then add whatever your cluster needs.
+#
+# This uses the image with the model baked in, so there is no model volume to
+# provision:
+#
+#   nix build github:heywoodlh/nix-llama#container-model
+#   ./result | docker load
+#   # push to your registry, then:
+#   kubectl apply -f examples/kubernetes.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nix-llama
+  labels:
+    app.kubernetes.io/name: nix-llama
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nix-llama
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nix-llama
+  labels:
+    app.kubernetes.io/name: nix-llama
+spec:
+  # One replica. Each pod loads its own copy of the weights, so scaling out
+  # multiplies memory rather than sharing it; scale up before scaling out.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nix-llama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nix-llama
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nix-llama
+          image: ghcr.io/heywoodlh/nix-llama-model:latest
+          imagePullPolicy: IfNotPresent
+          args: ["serve"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: NIX_LLAMA_HOST
+              value: "0.0.0.0"
+            - name: NIX_LLAMA_MODEL_DIR
+              value: "/model"
+            - name: NIX_LLAMA_STATE_DIR
+              value: "/var/lib/nix-llama"
+          resources:
+            # nix-llama reads these limits from the pod's cgroup and sizes the
+            # context window and thread count to fit them, so they are the main
+            # tuning knob here. Below roughly 8Gi the 7B model will not load.
+            requests:
+              cpu: "4"
+              memory: 8Gi
+            limits:
+              cpu: "8"
+              memory: 10Gi
+          startupProbe:
+            # Loading and warming up multi-gigabyte weights on CPU is slow;
+            # a generous startup budget avoids a restart loop that never ends.
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: state
+              mountPath: /var/lib/nix-llama
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # emptyDir is enough: everything here is a cache that can be rebuilt.
+        # Swap in a PersistentVolumeClaim to keep prompt caches across restarts.
+        - name: state
+          emptyDir:
+            sizeLimit: 8Gi
+        - name: tmp
+          emptyDir: {}

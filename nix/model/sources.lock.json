@@ -1,0 +1,60 @@
+{
+  "sources": {
+    "codeberg": {
+      "hash": "sha256-Bi9GQWyliZ7zxq8ZE57jhYDvAmkl5GZni86b5XcwpnY=",
+      "rev": "b233bfedacee500d9a3364741297cc28caa4491a"
+    },
+    "dxvk": {
+      "hash": "sha256-nnPc8lPGZSixedWG/hWLemjUJZJRBFNTeksA9djsy7g=",
+      "rev": "1039f682058fa71f159129b9e14fee05cc4e3cef"
+    },
+    "github-actions": {
+      "hash": "sha256-BxmgoX5qRchXKJX4EZwC9arhgstxkHjJy2li06zTBtc=",
+      "rev": "2b4f2c7398e04ee8d02adca7440e4286d20c78b9"
+    },
+    "gitlab-ci": {
+      "hash": "sha256-eXRozvgVZIfdtO5SWTvb5sMAFKqmTLvPJ+Rf+jN51jg=",
+      "rev": "5f9b872ae200a49ba46054a3a56f68c1a49fc571"
+    },
+    "home-manager": {
+      "hash": "sha256-ewkbJRHQ8lkXRKQ/I13BTxvKvnDwMYCn8uhcA1r51e0=",
+      "rev": "82ce401aa350502897c3f2e85f384d61cd3b0b6d"
+    },
+    "homebrew": {
+      "hash": "sha256-GsDw2fH7nUV/OKSVJ/h6M0HS71Ygy+3N53cggqSeb50=",
+      "rev": "8679d30f156018b0b184c64ab21a784f64b1d880"
+    },
+    "hyprland-wiki": {
+      "hash": "sha256-Jb8zhkImMylKpsztLBzGzsJrZmvvZLPdbjeQkyHWQfc=",
+      "rev": "f20353c27c09fd146baf5de7d17ff3b0f596c8ae"
+    },
+    "kubernetes": {
+      "hash": "sha256-GbdxXfoUbFQOpQv2v8O+yXMFKi5SNFSw7kq/nubt/I4=",
+      "rev": "4706565788493db5750bda0d57f651823378189a"
+    },
+    "lutris": {
+      "hash": "sha256-g+Nayvn2Xbu086jlX73NXLXHNCcNyL5xcRcPE9Hnc1s=",
+      "rev": "516ed5ffaab50e1b53e902e7b3a6a7cef9ab9ff4"
+    },
+    "niri": {
+      "hash": "sha256-Q4po7jYgcsf1DSLR4pM/k7FhZu7l0+rXXQCPnvxt49A=",
+      "rev": "5e2672466c49015c502c4193b63b7ae35429250f"
+    },
+    "nix-darwin": {
+      "hash": "sha256-+RpTlcdh9KqZ+ZiLkNSTvibQWm935EcIdBzRPCTFsrQ=",
+      "rev": "ff0e21a414d4547183396da1b44a66f2577b65e9"
+    },
+    "nix-dev": {
+      "hash": "sha256-SnoFpl/SuKPkPblkzudSkJmJU/UbNMsTfkB12KJ2rAM=",
+      "rev": "edeead537a0b7b356aaf6dc2767a74acfe6c3805"
+    },
+    "nix-manual": {
+      "hash": "sha256-0G8TTGI3koDf26FjMfi/tXcokBErLGGQW/7ZbkEVn0Y=",
+      "rev": "c563a2a3d17b91bd464385b769e36fd04802a6c5"
+    },
+    "vkd3d-proton": {
+      "hash": "sha256-/SZCYGNrpfvGv9icV4GsxQIl5MI3DZc/m9yp6MzSqy8=",
+      "rev": "22d4d293c5cf8964a293a8bf58f8bc6127eb829f"
+    }
+  }
+}

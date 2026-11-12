@@ -1,0 +1,164 @@
+name: security
+
+# Security gates run on every pull request and block the merge. The principle:
+# anything that would weaken a deployment's security posture fails here rather
+# than being noticed in review -- or not noticed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Vulnerability databases change even when this repository does not.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    name: policy and secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks needs history to tell an introduced secret from an
+          # existing one.
+          fetch-depth: 0
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Encoded decisions that must not be silently reversed: loopback-only
+      # default, no CORS wildcard, no llama.cpp agent/shell tools, no inline
+      # secrets, no shell=True.
+      - name: Deployment security policy
+        run: nix build --print-build-logs '.#checks.x86_64-linux.security-policy'
+
+      - name: Secret scan (working tree)
+        run: nix build --print-build-logs '.#checks.x86_64-linux.secret-scan'
+
+      - name: Secret scan (history)
+        run: |
+          nix run nixpkgs#gitleaks -- detect \
+            --source . --redact --verbose \
+            --config .gitleaks.toml --exit-code 1
+
+      - name: Licence policy for the documentation corpus
+        run: nix build --print-build-logs '.#checks.x86_64-linux.corpus-licenses'
+
+  python-sast:
+    name: static analysis (python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # ruff's flake8-bandit rules (S) cover the injection, subprocess and
+      # deserialisation classes that matter for a network service. They are
+      # part of the normal lint gate; this runs them alone so a security
+      # regression is legible in the checks list.
+      - name: Bandit rules
+        run: |
+          nix run nixpkgs#ruff -- check --select S --output-format github src/ training/ nix/
+
+  codeql:
+    name: codeql
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:python
+
+  image-scan:
+    name: container image scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Build the image
+        run: |
+          nix build --print-build-logs '.#container'
+          ./result | docker load
+
+      # The image is a Nix closure on scratch, so there is no distro package
+      # database to scan; trivy's value here is catching a known-vulnerable
+      # library version in the closure.
+      - name: Scan with trivy
+        run: |
+          nix run nixpkgs#trivy -- image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            --format table \
+            "nix-llama:$(cat VERSION)"
+
+      - name: Assert the image does not run as root
+        run: |
+          user=$(docker inspect --format '{{ .Config.User }}' "nix-llama:$(cat VERSION)")
+          echo "image user: $user"
+          test "$user" = "1000:1000"
+
+  dependency-review:
+    name: dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          # Copyleft dependencies are fine to *use*; what this project must not
+          # do is take them as training material. That is enforced separately
+          # by the corpus licence policy.
+          comment-summary-in-pr: on-failure
+
+  flake-input-review:
+    name: flake input review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Every flake input is code that runs at build time. One input is
+      # reviewable; a surprise second one is how a supply chain grows.
+      - name: Assert the input set has not grown
+        run: |
+          inputs=$(nix flake metadata --json | nix run nixpkgs#jq -- -r '.locks.nodes | keys[]' | grep -v '^root$')
+          echo "flake inputs: $inputs"
+          expected="nixpkgs"
+          if [ "$inputs" != "$expected" ]; then
+            echo "::error::flake inputs changed: expected '$expected', got '$inputs'." \
+                 "Adding a dependency is allowed, but it must be deliberate -- update this check."
+            exit 1
+          fi

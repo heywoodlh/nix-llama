@@ -1,0 +1,21 @@
+# Nix build outputs
+/result
+/result-*
+/corpus-result
+/model-result
+/model
+/upload
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+/build/
+/dist/
+
+# Editors
+.direnv/
+.envrc.local
+*.swp

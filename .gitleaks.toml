@@ -1,0 +1,27 @@
+# gitleaks configuration for nix-llama.
+#
+# The repository holds no secrets, and CI fails a pull request that introduces
+# one. The allowlist below covers the two things that look like credentials but
+# are not: Nix store hashes and the SRI hashes pinning upstream artefacts.
+title = "nix-llama"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Nix hashes and pinned artefact digests are not secrets"
+paths = [
+  '''flake\.lock''',
+  '''nix/model/sources\.lock\.json''',
+  '''nix/model/base\.lock\.json''',
+]
+regexes = [
+  # SRI hashes: sha256-<base64>
+  '''sha256-[A-Za-z0-9+/=]{40,}''',
+  # Nix store paths
+  '''/nix/store/[a-z0-9]{32}-''',
+  # Git revisions recorded in the source lock
+  '''"rev":\s*"[0-9a-f]{40}"''',
+  # The NixOS VM test's API key, named so it cannot be mistaken for a real one
+  '''test-key-not-a-secret''',
+]
