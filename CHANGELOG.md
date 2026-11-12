@@ -12,6 +12,12 @@ a model whose prompt format changed -- is a major bump.
 
 ## [Unreleased]
 
+### Added
+
+- **Home Manager module** (`homeManagerModules.default`). Runs nix-llama as a systemd
+  user unit on Linux or a launchd agent on macOS, with the same options as the system
+  modules. It supplies its own packages, so it works under `useGlobalPkgs`.
+
 ### Changed
 
 - The model workflow reads `HF_REPO` from repository secrets, falling back to a

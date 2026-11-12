@@ -16,7 +16,7 @@
 let
   inherit (pkgs) runCommand;
 
-  isLinux = pkgs.stdenv.hostPlatform.isLinux;
+  inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
 
   # The flake source is already free of .git and build outputs, so the lint
   # checks can take it as-is.
@@ -360,6 +360,106 @@ in
         echo "MCP initialize/tools-list/tools-call all behaved"
         touch $out
       '';
+
+  # Home Manager is not a flake input -- there is exactly one -- so the module
+  # is evaluated against stubs of the handful of Home Manager options it sets.
+  # That is enough to catch a broken option path, a lost assertion or a unit
+  # that no longer starts the right thing; real Home Manager types are
+  # exercised by anyone importing the module.
+  #
+  # Bare nixpkgs, deliberately: the overlay-less path, where the module extends
+  # `pkgs` itself, is the one most users of `homeManagerModules.default` take.
+  home-manager-module-eval =
+    let
+      inherit (lib) mkOption types;
+      anything = mkOption { type = types.anything; };
+      attrs = mkOption {
+        type = types.attrsOf types.anything;
+        default = { };
+      };
+      list = mkOption {
+        type = types.listOf types.anything;
+        default = [ ];
+      };
+
+      evaluate =
+        extra:
+        lib.evalModules {
+          modules = [
+            self.homeManagerModules.default
+            {
+              options = {
+                assertions = list;
+                warnings = list;
+                home.homeDirectory = anything;
+                home.packages = list;
+                xdg.stateHome = anything;
+                xdg.configFile = attrs;
+                systemd.user.services = attrs;
+                launchd.agents = attrs;
+              };
+              config = {
+                _module.args.pkgs = import pkgs.path { inherit system; };
+                home.homeDirectory = "/home/alice";
+                xdg.stateHome = "/home/alice/.local/state";
+                services.nix-llama = {
+                  enable = true;
+                  # A path string, so the check does not pull the model bundle.
+                  model = "/home/alice/models/example.gguf";
+                  rag.topK = 8;
+                  # A stand-in: this checks the wiring, and building llama.cpp
+                  # just to grep a store path out of a script would be waste.
+                  package = stubPackage;
+                };
+              };
+            }
+            extra
+          ];
+        };
+
+      stubPackage = pkgs.writeShellScriptBin "nix-llama" "exit 0";
+
+      hm = (evaluate { }).config;
+      failedAssertions = cfg: map (a: a.message) (lib.filter (a: !a.assertion) cfg.assertions);
+
+      unit = hm.systemd.user.services.nix-llama;
+      agent = hm.launchd.agents.nix-llama;
+      launcher = if isLinux then unit.Service.ExecStart else lib.head agent.config.ProgramArguments;
+    in
+    assert lib.assertMsg (failedAssertions hm == [ ]) (lib.concatLines (failedAssertions hm));
+    assert lib.assertMsg (
+      failedAssertions (evaluate { services.nix-llama.openFirewall = true; }).config != [ ]
+    ) "openFirewall must be rejected under Home Manager";
+    assert lib.assertMsg (
+      isLinux -> unit.Install.WantedBy == [ "default.target" ] && unit.Service.Restart == "on-failure"
+    ) "the systemd user unit is no longer started with the session";
+    # The system unit's trap applies here too: denying @resources kills
+    # llama.cpp with SIGSYS while the model loads.
+    assert lib.assertMsg (
+      isLinux -> !(lib.elem "~@resources" unit.Service.SystemCallFilter)
+    ) "the user unit's SystemCallFilter denies @resources";
+    assert lib.assertMsg (
+      isDarwin -> agent.enable && agent.config.KeepAlive.Crashed && hm.systemd.user.services == { }
+    ) "the launchd agent is not the one defined on macOS";
+    runCommand "nix-llama-check-home-manager-eval" { nativeBuildInputs = [ pkgs.jq ]; } ''
+      cp ${hm.xdg.configFile."nix-llama/config.json".source} config.json
+      cp ${launcher} launcher.sh
+
+      jq -e '.model == "/home/alice/models/example.gguf"' config.json > /dev/null
+      jq -e '.rag.topK == 8' config.json > /dev/null
+      # /var/lib is not writable by a user service, so the default must move.
+      jq -e '.stateDir == "/home/alice/.local/state/nix-llama"' config.json > /dev/null
+
+      grep -qF "mkdir -p -m 0700 /home/alice/.local/state/nix-llama" launcher.sh \
+        || { echo "the launcher no longer creates stateDir" >&2; exit 1; }
+      grep -qE '^export .*NIX_LLAMA_CONFIG' launcher.sh \
+        || { echo "the launcher no longer exports NIX_LLAMA_CONFIG" >&2; exit 1; }
+      grep -qF '${stubPackage}/bin/nix-llama serve' launcher.sh \
+        || { echo "the launcher no longer runs nix-llama serve" >&2; exit 1; }
+
+      echo "home-manager module evaluation checks passed"
+      touch $out
+    '';
 }
 // lib.optionalAttrs isLinux {
   # Full-system test: the module, the systemd unit and its hardening, the

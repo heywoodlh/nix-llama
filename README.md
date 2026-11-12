@@ -28,6 +28,7 @@ machine, and serves an OpenAI-compatible endpoint on `127.0.0.1:8080`.
 - [Quick start](#quick-start)
 - [NixOS](#nixos)
 - [nix-darwin](#nix-darwin)
+- [Home Manager](#home-manager)
 - [Docker](#docker)
 - [Kubernetes](#kubernetes)
 - [Using it from a coding harness](#using-it-from-a-coding-harness)
@@ -49,6 +50,7 @@ machine, and serves an OpenAI-compatible endpoint on `127.0.0.1:8080`.
 | `nix-llama-rag` | Builds and queries the documentation index; also an MCP server and an augmenting proxy. |
 | `nix-llama-probe` | Prints what nix-llama detected, as text or JSON. |
 | NixOS / nix-darwin modules | The same option surface on both, with systemd hardening and a service account. |
+| Home Manager module | The same options again, as a systemd user unit or a launchd agent, for machines whose system configuration you do not control. |
 | Container images | Built from this flake, so the `llama-server` binary is the same store path the service runs. |
 | `#model` | A model *bundle*: quantized weights, retrieval index, system prompt, model card, attribution. |
 
@@ -187,6 +189,49 @@ The options are identical to the NixOS module. Differences on macOS: the service
 under launchd, logs to `/var/log/nix-llama.log`, and `acceleration = "auto"` resolves
 to Metal, where the memory budget is 75% of unified memory rather than a separate VRAM
 pool.
+
+## Home Manager
+
+Runs the server as you rather than as a service account: a systemd user unit on
+Linux, a launchd agent on macOS. Useful on a work Mac, a non-NixOS distribution, or
+anywhere the system configuration is not yours to change.
+
+```nix
+{
+  inputs.nix-llama.url = "github:heywoodlh/nix-llama";
+
+  outputs = { home-manager, nixpkgs, nix-llama, ... }: {
+    homeConfigurations.alice = home-manager.lib.homeManagerConfiguration {
+      pkgs = nixpkgs.legacyPackages.aarch64-darwin;
+      modules = [
+        nix-llama.homeManagerModules.default
+        { services.nix-llama.enable = true; }
+      ];
+    };
+  };
+}
+```
+
+The options are the same as the system modules, with these differences:
+
+- `stateDir` defaults to `$XDG_STATE_HOME/nix-llama` (`~/.local/state/nix-llama`).
+- `user`, `group` and `uid`/`gid` do not apply. `openFirewall` is rejected: the
+  firewall belongs to the system configuration.
+- `acceleration = "auto"` resolves to Metal on macOS. On Linux it reads the NixOS
+  configuration when Home Manager runs as a NixOS module (`osConfig`); standalone
+  there is nothing to read, so it picks the CPU and warns — set it explicitly.
+- The Linux unit keeps the seccomp half of the system unit's hardening (syscall
+  filter, address families, `NoNewPrivileges`); the filesystem sandbox needs
+  privileges a user manager may not have. No mlock limit is raised, because a user
+  unit cannot exceed its manager's hard limit; if pinning fails, llama.cpp warns and
+  runs unpinned, and `tuning.loadMode = "mmap"` silences it.
+- Logs go to the journal (`journalctl --user -u nix-llama`) on Linux and to
+  `~/Library/Logs/nix-llama.log` on macOS. The rendered configuration is installed at
+  `~/.config/nix-llama/config.json`, where `nix-llama plan` and `doctor` find it.
+
+`homeManagerModules.default` supplies its own packages without touching
+`nixpkgs.overlays`, so it works with `home-manager.useGlobalPkgs`.
+`homeManagerModules.nix-llama` expects the overlay to be applied already.
 
 ## Docker
 
@@ -593,7 +638,8 @@ relaxed, and for the hyper-parameters. The 1.5B variant
 
 ## Configuration reference
 
-Every option exists on both platform modules under `services.nix-llama`. The CLI
+Every option exists on the NixOS, nix-darwin and Home Manager modules under
+`services.nix-llama` (see [Home Manager](#home-manager) for its differences). The CLI
 accepts the same settings as a JSON file (`--config`) or environment variables
 (`NIX_LLAMA_*`).
 
