@@ -127,6 +127,17 @@ in
     echo "security policy checks passed"
   '';
 
+  # Every name the overlay adds lands in the global package set, where
+  # callPackage passes it to any package with a parameter of the same name. A
+  # top-level `version` broke every package declaring `version ? ...`.
+  overlay-namespace =
+    let
+      added = lib.attrNames (self.overlays.default pkgs pkgs);
+      unprefixed = lib.filter (name: !lib.hasPrefix "nix-llama" name) added;
+    in
+    assert lib.assertMsg (unprefixed == [ ]) "overlay adds unprefixed names: ${toString unprefixed}";
+    runCommand "nix-llama-check-overlay-namespace" { } "touch $out";
+
   # The version in VERSION, the flake and the changelog must agree, or a
   # release tags artefacts that disagree about what they are.
   version-consistency = check "version-consistency" [ pkgs.ripgrep ] ''

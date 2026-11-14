@@ -38,8 +38,6 @@ let
     };
 in
 {
-  inherit version;
-
   nix-llama = mkNixLlama final.llama-cpp;
 
   # Accelerated variants. Each one is the same Python application wrapped
