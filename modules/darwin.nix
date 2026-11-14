@@ -101,7 +101,10 @@ in
 
     # launchd has no equivalent of ExecStartPre, so the state directory and the
     # log file are created here, at activation, while we are still root.
-    system.activationScripts.nix-llama.text = ''
+    # nix-darwin only runs a fixed list of activation scripts, so an arbitrary
+    # name would be silently skipped. extraActivation runs before launchd
+    # (re)loads the daemon; numeric ids work before the account exists.
+    system.activationScripts.extraActivation.text = ''
       echo "setting up nix-llama state directory..." >&2
       mkdir -p '${cfg.stateDir}'
       chown ${toString cfg.uid}:${toString cfg.gid} '${cfg.stateDir}'
