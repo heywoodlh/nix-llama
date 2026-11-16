@@ -31,6 +31,9 @@ a model whose prompt format changed -- is a major bump.
   passed it to every package with a `version` argument, so applying the overlay (as
   `nixosModules.default` and `darwinModules.default` do) broke unrelated packages
   such as `ocamlbuild`.
+- nix-darwin: the state directory and log file are created again. The module defined
+  `system.activationScripts.nix-llama`, a name nix-darwin never runs; it now uses
+  `extraActivation`.
 - Probe tests pin the platform to Linux when using the synthetic root, so they
   pass on macOS runners.
 - CodeQL on pull requests: the job now has `actions: read`.

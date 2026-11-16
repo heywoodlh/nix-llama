@@ -471,6 +471,94 @@ in
       echo "home-manager module evaluation checks passed"
       touch $out
     '';
+
+  # nix-darwin is not a flake input (there is exactly one), so the module is
+  # evaluated against stub options. The point is the activation script: nix-darwin
+  # concatenates a fixed list of them and silently ignores any other name.
+  darwin-module-eval =
+    let
+      inherit (lib) mkOption types;
+      attrs = mkOption {
+        type = types.attrsOf types.anything;
+        default = { };
+      };
+      list = mkOption {
+        type = types.listOf types.anything;
+        default = [ ];
+      };
+
+      runByNixDarwin = [
+        "preActivation"
+        "checks"
+        "createRun"
+        "extraActivation"
+        "groups"
+        "users"
+        "applications"
+        "pam"
+        "patches"
+        "openssh"
+        "etc"
+        "defaults"
+        "userDefaults"
+        "launchd"
+        "userLaunchd"
+        "nix-daemon"
+        "time"
+        "networking"
+        "power"
+        "keyboard"
+        "fonts"
+        "nvram"
+        "mas"
+        "homebrew"
+        "postActivation"
+      ];
+
+      darwin =
+        (lib.evalModules {
+          modules = [
+            self.darwinModules.nix-llama
+            {
+              options = {
+                assertions = list;
+                warnings = list;
+                users = {
+                  knownUsers = list;
+                  knownGroups = list;
+                  users = attrs;
+                  groups = attrs;
+                };
+                environment.systemPackages = list;
+                environment.etc = attrs;
+                launchd.daemons = attrs;
+                system.activationScripts = mkOption {
+                  type = types.attrsOf (types.submodule { options.text = mkOption { type = types.lines; }; });
+                  default = { };
+                };
+              };
+              config = {
+                _module.args.pkgs = pkgs;
+                services.nix-llama = {
+                  enable = true;
+                  model = "/var/lib/models/example.gguf";
+                  package = pkgs.writeShellScriptBin "nix-llama" "exit 0";
+                };
+              };
+            }
+          ];
+        }).config;
+
+      scripts = darwin.system.activationScripts;
+      ignored = lib.subtractLists runByNixDarwin (lib.attrNames scripts);
+    in
+    assert lib.assertMsg (
+      ignored == [ ]
+    ) "activation scripts nix-darwin never runs: ${toString ignored}";
+    assert lib.assertMsg (lib.hasInfix "mkdir -p '/var/lib/nix-llama'" (
+      scripts.extraActivation.text or ""
+    )) "the state directory is no longer created at activation";
+    runCommand "nix-llama-check-darwin-module-eval" { } "touch $out";
 }
 // lib.optionalAttrs isLinux {
   # Full-system test: the module, the systemd unit and its hardening, the
