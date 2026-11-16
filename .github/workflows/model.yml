@@ -150,7 +150,7 @@ jobs:
         run: nix build --print-build-logs '.#corpus' --out-link corpus-result
 
       - name: Open a pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: automation/refresh-documentation-corpus
           title: "corpus: refresh pinned documentation sources"
